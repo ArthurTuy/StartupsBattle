@@ -1,0 +1,130 @@
+.form-container {
+    max-width: 400px;
+    margin: 60px auto;
+    background-color: #f4f4f4;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    font-family: Arial, sans-serif;
+  }
+  
+  .form-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .form-container input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  
+  .form-container form button {
+    width: 100%;
+    padding: 12px;
+    background-color: #0057e7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .form-container form button:hover {
+    background-color: #0040b4;
+  }
+  
+  .form-container p {
+    text-align: center;
+    margin-top: 15px;
+    font-weight: bold;
+    color: green;
+  }
+
+  .contador {
+    font-weight: normal;
+    font-size: 15px;
+    color: #555;
+    margin-left: 8px;
+  }
+    
+  .warning{
+    font-size: 15px;
+    font-weight: 300;
+    color: rgb(109, 109, 109)
+  } 
+  
+  .startup-list {
+    margin-top: 30px;
+  }
+  
+  .startup-card {
+    position: relative;
+    background-color: #ffffff;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.08);
+    margin-bottom: 12px;
+    transition: transform 0.2s;
+  }
+  
+  
+  .startup-card:hover {
+    transform: scale(1.02);
+  }
+  
+  .startup-nome {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+    color: #222;
+  }
+  
+  .startup-info {
+    color: #666;
+    font-size: 0.95rem;
+  }
+  
+  .excluir-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    margin-top: 5px;
+  }
+  
+  .excluir-btn:hover {
+    background: transparent;
+    color: #0057e7;
+  }
+  
+  .gerar-btn {
+    margin-top: 24px;
+    padding: 12px 24px;
+    background-color: #0040b4;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .gerar-btn:hover {
+    background-color: #0040b4;
+  }
+  
+  
