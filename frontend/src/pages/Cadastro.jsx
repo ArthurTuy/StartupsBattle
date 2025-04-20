@@ -29,6 +29,20 @@ export default function Cadastro() {
     }
   };
 
+  const gerarBatalhas = () => {
+    console.log("Enviando requisição para /batalhas...");
+    axios.post("http://localhost:8000/batalhas")
+      .then((res) => {
+        console.log("Batalhas geradas:", res.data);
+        navigate("/sorteio", { state: { batalhas: res.data.batalhas } });
+      })
+      .catch((err) => {
+        console.error("Erro ao gerar batalhas:", err);
+        alert(err.response?.data?.detail || "Erro ao gerar batalhas.");
+      });
+  };
+  
+
   // Executar ao carregar a página
   useEffect(() => {
     buscarStartups();
@@ -85,43 +99,53 @@ export default function Cadastro() {
       {mensagem && <p>{mensagem}</p>}
 
       <h3>
-            Startups cadastradas: <span className="contador">{startups.length}/8</span>
-        </h3>
+        Startups cadastradas: <span className="contador">{startups.length}/8</span>
+      </h3>
 
-      <h4 className="warning">Devem ser cadastradas 4, 6 ou 8 startups para poder começar a batalhar!</h4>
-        <div className="startup-list">
+      <h4 className="warning">
+        Devem ser cadastradas 4, 6 ou 8 startups para poder começar a batalhar!
+      </h4>
+
+      <div className="startup-list">
         {startups.map((startup, index) => (
-            <div className="startup-card" key={index}>
+          <div className="startup-card" key={index}>
             <button
-                className="excluir-btn"
-                onClick={() => excluirStartup(startup.nome)}
-                title="Excluir startup"
+              className="excluir-btn"
+              onClick={() => excluirStartup(startup.nome)}
+              title="Excluir startup"
             >
-                X
+              X
             </button>
             <div className="startup-nome">{startup.nome}</div>
             <div className="startup-info">{startup.slogan}</div>
             <div className="startup-info">Fundada em {startup.ano_fundacao}</div>
-            </div>
+          </div>
         ))}
-        </div>
+      </div>
 
-        {[4, 6, 8].includes(startups.length) && (
-        <button
-            className="gerar-btn"
-            onClick={() => {
-            axios.post("http://localhost:8000/batalhas")
-                .then(res => {
-                navigate("/batalhas", { state: { batalhas: res.data.batalhas } });
-                })
-                .catch(err => {
-                alert(err.response?.data?.detail || "Erro ao gerar batalhas.");
-                });
-            }}
-             >
-            Gerar batalhas
+      {[4, 6, 8].includes(startups.length) && (
+        <button className="gerar-btn" onClick={gerarBatalhas}>
+          Gerar batalhas
         </button>
-        )}
+        
+      )}
+
+<button
+  style={{ marginTop: 20 }}
+  className="gerar-btn"
+  onClick={() => {
+    axios.delete("http://localhost:8000/confrontos/limpar")
+      .then(() => {
+        alert("Confrontos apagados com sucesso!");
+      })
+      .catch((err) => {
+        alert("Erro ao apagar confrontos.");
+        console.error(err);
+      });
+  }}
+>
+  🧹 Limpar confrontos
+</button>
 
     </div>
   );
