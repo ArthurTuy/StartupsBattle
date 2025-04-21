@@ -16,14 +16,22 @@ app.add_middleware(
 
 db = connect_to_mongo()
 startups_collection = db["startups"]
-confrontos_collection = db["confrontos"]
+confrontos_atuais = db["confrontos_atuais"]
+confrontos_anteriores = db["confrontos_anteriores"]
 
 @app.post("/startups")
 def cadastrar_startup(startup: StartupCreate):
     if startups_collection.find_one({"nome": startup.nome}):
         raise HTTPException(status_code=400, detail="Startup já cadastrada.")
     nova = startup.dict()
-    nova["pontos"] = 70
+    nova.update({
+        "pontos": 70,
+        "pitch": 0,
+        "bugs": 0,
+        "tracao": 0,
+        "investidor_irritado": 0,
+        "fake_news": 0
+    })
     startups_collection.insert_one(nova)
     return {"message": "Startup cadastrada com sucesso."}
 
@@ -40,7 +48,7 @@ def excluir_startup(nome: str = Path(...)):
 
 @app.post("/batalhas")
 def gerar_batalhas():
-    if confrontos_collection.find_one({"encerrado": False}):
+    if confrontos_atuais.find_one({"encerrado": False}):
         raise HTTPException(status_code=400, detail="Já existem batalhas em andamento.")
 
     startups = list(startups_collection.find({}, {"_id": 0}))
@@ -56,7 +64,7 @@ def gerar_batalhas():
             "vencedor": None,
             "fase": 1
         }
-        confrontos_collection.insert_one(confronto)
+        confrontos_atuais.insert_one(confronto)
 
     return {"message": "Batalhas geradas com sucesso."}
 
@@ -68,36 +76,56 @@ def salvar_confronto(confronto: dict):
         "encerrado": False
     }
 
-    atualizacao = {
+    r = confrontos_atuais.update_one(filtro, {
         "$set": {
             "encerrado": True,
             "vencedor": confronto["vencedor"],
             "eventos": confronto.get("eventos", []),
             "fase": confronto.get("fase", 1)
         }
-    }
+    })
 
-    r = confrontos_collection.update_one(filtro, atualizacao)
     if r.modified_count == 0:
         raise HTTPException(status_code=404, detail="Confronto não encontrado ou já encerrado.")
 
-    for key in ["startup_a", "startup_b", "vencedor", "perdedor"]:
+    # Atualiza pontos e estatísticas
+    for key in ["startup_a", "startup_b", "vencedor"]:
         s = confronto.get(key)
         if s:
-            startups_collection.update_one({"nome": s["nome"]}, {"$set": {"pontos": s["pontos"]}})
+            update = {
+                "pontos": s["pontos"],
+                "pitch": s.get("pitch", 0),
+                "bugs": s.get("bugs", 0),
+                "tracao": s.get("tracao", 0),
+                "investidor_irritado": s.get("investidor_irritado", 0),
+                "fake_news": s.get("fake_news", 0),
+            }
+            startups_collection.update_one({"nome": s["nome"]}, {"$set": update})
+
+    # Se todos os confrontos da fase foram encerrados, move para "anteriores"
+    fase = confronto.get("fase", 1)
+    total = confrontos_atuais.count_documents({"fase": fase})
+    encerrados = confrontos_atuais.count_documents({"fase": fase, "encerrado": True})
+    if total == encerrados:
+        todos = list(confrontos_atuais.find({"fase": fase}))
+        if todos:
+            confrontos_anteriores.insert_many(todos)
+            confrontos_atuais.delete_many({"fase": fase})
+
     return {"message": "Confronto encerrado com sucesso."}
 
 @app.post("/confrontos/gerar-proxima-fase")
 def gerar_proxima_fase():
-    finalizados = list(confrontos_collection.find({"encerrado": True}, {"vencedor": 1, "fase": 1, "_id": 0}))
-    if not finalizados:
-        raise HTTPException(status_code=400, detail="Nenhum confronto finalizado.")
+    ultimos = list(confrontos_anteriores.find({}, {"_id": 0}))
+    if not ultimos:
+        raise HTTPException(status_code=400, detail="Nenhuma fase finalizada.")
 
-    ultima_fase = max(c.get("fase", 1) for c in finalizados)
-    if confrontos_collection.find_one({"fase": ultima_fase + 1}):
-        return {"message": "Próxima fase já gerada."}
+    ultima_fase = max(c.get("fase", 1) for c in ultimos)
+    if confrontos_atuais.find_one({"encerrado": False}):
+        return {"message": "Já existe fase em andamento."}
 
-    vencedores = [c["vencedor"] for c in finalizados if c.get("fase") == ultima_fase]
+
+    vencedores = [c["vencedor"] for c in ultimos if c.get("fase") == ultima_fase]
 
     nomes_unicos = set()
     classificados = []
@@ -115,6 +143,7 @@ def gerar_proxima_fase():
         startups_collection.update_one({"nome": bye["nome"]}, {"$set": {"vaga_direta": True}})
         classificados.remove(bye)
 
+    nova_fase = ultima_fase + 1
     random.shuffle(classificados)
     for i in range(0, len(classificados), 2):
         confronto = {
@@ -122,45 +151,43 @@ def gerar_proxima_fase():
             "startup_b": classificados[i + 1],
             "encerrado": False,
             "vencedor": None,
-            "fase": ultima_fase + 1
+            "fase": nova_fase
         }
-        confrontos_collection.insert_one(confronto)
+        confrontos_atuais.insert_one(confronto)
 
-    return {"message": "Nova fase gerada.", "fase": ultima_fase + 1}
+    print("Gerando próxima fase com classificados:", classificados)
+
+
+    return {"message": "Nova fase gerada.", "fase": nova_fase}
 
 @app.get("/confrontos")
 def listar_confrontos():
-    todos = list(confrontos_collection.find({}, {"_id": 0}))
+    todos = list(confrontos_atuais.find({}, {"_id": 0}))
     if not todos:
         return []
-
-    maior_fase = max(c.get("fase", 1) for c in todos)
-    fase_atual = [c for c in todos if c.get("fase", 1) == maior_fase]
 
     startups = list(startups_collection.find({}, {"_id": 0}))
     pontos = {s["nome"]: s["pontos"] for s in startups}
 
-    for c in fase_atual:
+    for c in todos:
         for lado in ["startup_a", "startup_b", "vencedor"]:
             if c.get(lado) and c[lado]["nome"] in pontos:
                 c[lado]["pontos"] = pontos[c[lado]["nome"]]
 
-    return fase_atual
+    return todos
 
 @app.get("/confrontos/classificados")
 def listar_classificados():
-    encerrados = list(confrontos_collection.find({"encerrado": True}, {"_id": 0, "vencedor": 1, "fase": 1}))
-    if not encerrados:
+    ultimos = list(confrontos_anteriores.find({}, {"_id": 0}))
+    if not ultimos:
         return []
 
-    maior_fase = max(c.get("fase", 1) for c in encerrados)
-    vencedores = [c["vencedor"] for c in encerrados if c.get("fase", 1) == maior_fase]
+    maior_fase = max(c.get("fase", 1) for c in ultimos)
+    vencedores = [c["vencedor"] for c in ultimos if c.get("fase", 1) == maior_fase]
 
     nomes = list(set(s["nome"] for s in vencedores))
-    total_batalhas = confrontos_collection.count_documents({"fase": maior_fase})
-    total_encerrados = confrontos_collection.count_documents({"fase": maior_fase, "encerrado": True})
-
-    if len(nomes) == 1 and total_batalhas == total_encerrados:
+    total_batalhas = len([c for c in ultimos if c["fase"] == maior_fase])
+    if len(nomes) == 1 and total_batalhas == len(vencedores):
         campeao = vencedores[0]
         dados = startups_collection.find_one({"nome": campeao["nome"]}, {"_id": 0, "slogan": 1})
         if dados:
@@ -170,8 +197,28 @@ def listar_classificados():
 
     return vencedores
 
+@app.get("/relatorio-final")
+def relatorio_final():
+    startups = list(startups_collection.find({}, {"_id": 0}))
+    startups.sort(key=lambda s: s["pontos"], reverse=True)
+
+    campea = startups[0] if startups else None
+    if campea:
+        campea["campeao"] = True
+
+    return {"ranking": startups, "campeao": campea}
+
 @app.delete("/confrontos/limpar")
 def limpar_confrontos():
-    confrontos_collection.delete_many({})
-    startups_collection.update_many({}, {"$set": {"pontos": 70, "vaga_direta": False}})
+    confrontos_atuais.delete_many({})
+    confrontos_anteriores.delete_many({})
+    startups_collection.update_many({}, {"$set": {
+        "pontos": 70,
+        "pitch": 0,
+        "bugs": 0,
+        "tracao": 0,
+        "investidor_irritado": 0,
+        "fake_news": 0,
+        "vaga_direta": False
+    }})
     return {"message": "Resetado com sucesso."}

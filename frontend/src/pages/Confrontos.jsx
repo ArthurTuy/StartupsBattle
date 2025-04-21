@@ -4,11 +4,11 @@ import "../styles/Confrontos.css";
 import axios from "axios";
 
 const eventos = [
-  { nome: "Pitch convincente", valor: 6, campo: "pitches" },
+  { nome: "Pitch convincente", valor: 6, campo: "pitch" },
   { nome: "Produto com bugs", valor: -4, campo: "bugs" },
-  { nome: "Boa tracao de usuarios", valor: 3, campo: "tracoes" },
-  { nome: "Investidor irritado", valor: -6, campo: "investidores" },
-  { nome: "Fake News", valor: -8, campo: "penalidades" },
+  { nome: "Boa tracao de usuarios", valor: 3, campo: "tracao" },
+  { nome: "Investidor irritado", valor: -6, campo: "investidor_irritado" },
+  { nome: "Fake News", valor: -8, campo: "fake_news" },
 ];
 
 export default function Confrontos() {
@@ -27,14 +27,8 @@ export default function Confrontos() {
 
   useEffect(() => {
     if (batalha) {
-      setStartupA({
-        ...batalha.startup_a,
-        stats: { pitches: 0, bugs: 0, tracoes: 0, investidores: 0, penalidades: 0 },
-      });
-      setStartupB({
-        ...batalha.startup_b,
-        stats: { pitches: 0, bugs: 0, tracoes: 0, investidores: 0, penalidades: 0 },
-      });
+      setStartupA({ ...batalha.startup_a });
+      setStartupB({ ...batalha.startup_b });
     }
   }, [batalha]);
 
@@ -48,17 +42,13 @@ export default function Confrontos() {
 
   const aplicarEvento = (lado, evento) => {
     if (usados[lado][evento.nome]) return;
-    const atualizarStartup = lado === "A" ? setStartupA : setStartupB;
-    const atual = lado === "A" ? startupA : startupB;
 
-    atualizarStartup({
-      ...atual,
-      pontos: atual.pontos + evento.valor,
-      stats: {
-        ...atual.stats,
-        [evento.campo]: atual.stats[evento.campo] + 1,
-      },
-    });
+    const atual = lado === "A" ? { ...startupA } : { ...startupB };
+    atual.pontos += evento.valor;
+    atual[evento.campo] = (atual[evento.campo] || 0) + 1;
+
+    if (lado === "A") setStartupA(atual);
+    else setStartupB(atual);
 
     setUsados((prev) => ({
       ...prev,
@@ -88,16 +78,18 @@ export default function Confrontos() {
       return decidirVencedor();
     }
 
-    setRodada(rodada + 1);
+    setRodada((prev) => prev + 1);
     setUsados({ A: {}, B: {} });
     setFinalizada(false);
   };
 
   const decidirVencedor = () => {
-    if (startupA.pontos === startupB.pontos) {
-      const ladoSorteado = Math.random() < 0.5 ? "A" : "B";
-      const ganhadora = ladoSorteado === "A" ? startupA : startupB;
+    let vencedor = null;
+    let perdedor = null;
 
+    if (startupA.pontos === startupB.pontos) {
+      const sorteado = Math.random() < 0.5 ? "A" : "B";
+      const ganhadora = sorteado === "A" ? startupA : startupB;
       ganhadora.pontos += 2;
 
       setEventosAplicados((prev) => [
@@ -109,17 +101,17 @@ export default function Confrontos() {
           rodada: "Desempate",
         },
       ]);
-
-      const vencedora = { ...ganhadora, pontos: ganhadora.pontos + 30 };
-      const perdedora = ladoSorteado === "A" ? startupB : startupA;
-
-      salvarConfronto(vencedora, perdedora);
-    } else {
-      const vencedor = startupA.pontos > startupB.pontos ? { ...startupA, pontos: startupA.pontos + 30 } : { ...startupB, pontos: startupB.pontos + 30 };
-      const perdedor = startupA.pontos > startupB.pontos ? startupB : startupA;
-
-      salvarConfronto(vencedor, perdedor);
     }
+
+    if (startupA.pontos >= startupB.pontos) {
+      vencedor = { ...startupA, pontos: startupA.pontos + 30 };
+      perdedor = startupB;
+    } else {
+      vencedor = { ...startupB, pontos: startupB.pontos + 30 };
+      perdedor = startupA;
+    }
+
+    salvarConfronto(vencedor, perdedor);
   };
 
   const salvarConfronto = async (vencedor, perdedor) => {
@@ -137,6 +129,7 @@ export default function Confrontos() {
       navigate("/sorteio", { state: { ultimaBatalhaFinalizada: true } });
     } catch (err) {
       console.error("Erro ao salvar confronto:", err);
+      alert("Erro ao salvar o confronto.");
     }
   };
 
@@ -178,7 +171,7 @@ export default function Confrontos() {
         <h3>Resumo do confronto:</h3>
         <ul>
           {eventosAplicados.map((e, i) => (
-            <li key={i} style={{ AlignItens: "center" }}>
+            <li key={i}>
               <strong>{e.nome}</strong> {e.valor > 0 ? "+" : ""}{e.valor} pontos — <em>{e.evento}</em> (Rodada {e.rodada})
             </li>
           ))}

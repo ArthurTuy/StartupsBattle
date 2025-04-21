@@ -1,0 +1,48 @@
+.vencedor-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 24px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .campeao-info {
+    text-align: center;
+    background: #f7f7f7;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+  
+  .tabela-final {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  .tabela-final th,
+  .tabela-final td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ccc;
+  }
+  
+  .tabela-final th {
+    background-color: #f0f0f0;
+  }
+  
+  .voltar-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .voltar-btn:hover {
+    background: #444;
+  }
+  
