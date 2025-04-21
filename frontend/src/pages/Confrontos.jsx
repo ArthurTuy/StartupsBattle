@@ -4,17 +4,17 @@ import "../styles/Confrontos.css";
 import axios from "axios";
 
 const eventos = [
-  { nome: "Pitch convincente", valor: 6, campo: "pitches" },
+  { nome: "Pitch convincente", valor: 6, campo: "pitch" },
   { nome: "Produto com bugs", valor: -4, campo: "bugs" },
-  { nome: "Boa tracao de usuarios", valor: 3, campo: "tracoes" },
-  { nome: "Investidor irritado", valor: -6, campo: "investidores" },
-  { nome: "Fake News", valor: -8, campo: "penalidades" },
+  { nome: "Boa tracao de usuarios", valor: 3, campo: "tracao" },
+  { nome: "Investidor irritado", valor: -6, campo: "investidor_irritado" },
+  { nome: "Fake News", valor: -8, campo: "fake_news" },
 ];
 
 export default function Confrontos() {
   const location = useLocation();
+  const batalha = location.state?.batalha;
   const navigate = useNavigate();
-  const batalha = location.state?.batalha || JSON.parse(localStorage.getItem("batalhaAtual"));
 
   const [rodada, setRodada] = useState(1);
   const [maxRodadas] = useState(5);
@@ -26,21 +26,10 @@ export default function Confrontos() {
   const [startupB, setStartupB] = useState(null);
 
   useEffect(() => {
-    if (!batalha) {
-      return;
+    if (batalha) {
+      setStartupA({ ...batalha.startup_a });
+      setStartupB({ ...batalha.startup_b });
     }
-
-    // salva no localStorage ao entrar
-    localStorage.setItem("batalhaAtual", JSON.stringify(batalha));
-
-    setStartupA({
-      ...batalha.startup_a,
-      stats: { pitches: 0, bugs: 0, tracoes: 0, investidores: 0, penalidades: 0 },
-    });
-    setStartupB({
-      ...batalha.startup_b,
-      stats: { pitches: 0, bugs: 0, tracoes: 0, investidores: 0, penalidades: 0 },
-    });
   }, [batalha]);
 
   if (!batalha || !startupA || !startupB) {
@@ -54,17 +43,12 @@ export default function Confrontos() {
   const aplicarEvento = (lado, evento) => {
     if (usados[lado][evento.nome]) return;
 
-    const atualizarStartup = lado === "A" ? setStartupA : setStartupB;
-    const atual = lado === "A" ? startupA : startupB;
+    const atual = lado === "A" ? { ...startupA } : { ...startupB };
+    atual.pontos += evento.valor;
+    atual[evento.campo] = (atual[evento.campo] || 0) + 1;
 
-    atualizarStartup({
-      ...atual,
-      pontos: atual.pontos + evento.valor,
-      stats: {
-        ...atual.stats,
-        [evento.campo]: atual.stats[evento.campo] + 1,
-      },
-    });
+    if (lado === "A") setStartupA(atual);
+    else setStartupB(atual);
 
     setUsados((prev) => ({
       ...prev,
@@ -94,17 +78,18 @@ export default function Confrontos() {
       return decidirVencedor();
     }
 
-    setRodada(rodada + 1);
+    setRodada((prev) => prev + 1);
     setUsados({ A: {}, B: {} });
     setFinalizada(false);
   };
 
   const decidirVencedor = () => {
-    let vencedor, perdedor;
+    let vencedor = null;
+    let perdedor = null;
 
     if (startupA.pontos === startupB.pontos) {
-      const ladoSorteado = Math.random() < 0.5 ? "A" : "B";
-      const ganhadora = ladoSorteado === "A" ? startupA : startupB;
+      const sorteado = Math.random() < 0.5 ? "A" : "B";
+      const ganhadora = sorteado === "A" ? startupA : startupB;
       ganhadora.pontos += 2;
 
       setEventosAplicados((prev) => [
@@ -116,15 +101,14 @@ export default function Confrontos() {
           rodada: "Desempate",
         },
       ]);
+    }
 
-      vencedor = { ...ganhadora, pontos: ganhadora.pontos + 30 };
-      perdedor = ladoSorteado === "A" ? startupB : startupA;
+    if (startupA.pontos >= startupB.pontos) {
+      vencedor = { ...startupA, pontos: startupA.pontos + 30 };
+      perdedor = startupB;
     } else {
-      vencedor = startupA.pontos > startupB.pontos
-        ? { ...startupA, pontos: startupA.pontos + 30 }
-        : { ...startupB, pontos: startupB.pontos + 30 };
-
-      perdedor = startupA.pontos > startupB.pontos ? startupB : startupA;
+      vencedor = { ...startupB, pontos: startupB.pontos + 30 };
+      perdedor = startupA;
     }
 
     salvarConfronto(vencedor, perdedor);
@@ -142,10 +126,10 @@ export default function Confrontos() {
 
     try {
       await axios.post("http://localhost:8000/confrontos", confrontoFinal);
-      localStorage.removeItem("batalhaAtual"); // limpa depois de finalizado
       navigate("/sorteio", { state: { ultimaBatalhaFinalizada: true } });
     } catch (err) {
       console.error("Erro ao salvar confronto:", err);
+      alert("Erro ao salvar o confronto.");
     }
   };
 
