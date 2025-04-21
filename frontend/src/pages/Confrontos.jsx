@@ -126,7 +126,15 @@ export default function Confrontos() {
 
     try {
       await axios.post("http://localhost:8000/confrontos", confrontoFinal);
-      navigate("/sorteio", { state: { ultimaBatalhaFinalizada: true } });
+      localStorage.removeItem("batalhaAtual");
+
+      // Verifica se ainda restam confrontos
+      const res = await axios.get("http://localhost:8000/confrontos");
+      if (res.data.length === 0) {
+        navigate("/vencedor");
+      } else {
+        navigate("/sorteio", { state: { ultimaBatalhaFinalizada: true } });
+      }
     } catch (err) {
       console.error("Erro ao salvar confronto:", err);
       alert("Erro ao salvar o confronto.");

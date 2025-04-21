@@ -118,26 +118,6 @@ export default function Sorteio() {
           </div>
         );
       })}
-
-      <h2 style={{ textAlign: "center", marginTop: 40 }}>
-        {campeao ? "🏆 VENCEDOR DO TORNEIO" : "Classificados para a próxima fase"}
-      </h2>
-
-      {!campeao &&
-        classificados.map((startup, i) => (
-          <div key={i} className="classificado-card">
-            <div className="classificado-info">
-              <div className="classificado-nome">{startup.nome}</div>
-              <div className="classificado-pontos">{startup.pontos} pontos</div>
-            </div>
-          </div>
-        ))}
-
-      {gerandoConfrontos && (
-        <p style={{ textAlign: "center", marginTop: 30 }}>
-          <em>Gerando próximos confrontos...</em>
-        </p>
-      )}
     </div>
   );
 }

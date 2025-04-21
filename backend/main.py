@@ -88,7 +88,6 @@ def salvar_confronto(confronto: dict):
     if r.modified_count == 0:
         raise HTTPException(status_code=404, detail="Confronto não encontrado ou já encerrado.")
 
-    # Atualiza pontos e estatísticas
     for key in ["startup_a", "startup_b", "vencedor"]:
         s = confronto.get(key)
         if s:
@@ -102,30 +101,67 @@ def salvar_confronto(confronto: dict):
             }
             startups_collection.update_one({"nome": s["nome"]}, {"$set": update})
 
-    # Se todos os confrontos da fase foram encerrados, move para "anteriores"
+    # Verifica se todos os confrontos da fase foram encerrados
     fase = confronto.get("fase", 1)
     total = confrontos_atuais.count_documents({"fase": fase})
     encerrados = confrontos_atuais.count_documents({"fase": fase, "encerrado": True})
+
     if total == encerrados:
+        # Move confrontos finalizados para os anteriores
         todos = list(confrontos_atuais.find({"fase": fase}))
         if todos:
             confrontos_anteriores.insert_many(todos)
             confrontos_atuais.delete_many({"fase": fase})
 
+        # Gera próxima fase automaticamente com base SOMENTE nessa fase
+        vencedores = [c["vencedor"] for c in todos if "vencedor" in c]
+
+        nomes_unicos = set()
+        classificados = []
+        for s in vencedores:
+            if s["nome"] not in nomes_unicos:
+                nomes_unicos.add(s["nome"])
+                classificados.append(s)
+
+        if len(classificados) >= 2:
+            nova_fase = fase + 1
+            random.shuffle(classificados)
+
+            if len(classificados) % 2 != 0:
+                bye = random.choice(classificados)
+                bye["vaga_direta"] = True
+                startups_collection.update_one({"nome": bye["nome"]}, {"$set": {"vaga_direta": True}})
+                classificados.remove(bye)
+
+            for i in range(0, len(classificados), 2):
+                confronto = {
+                    "startup_a": classificados[i],
+                    "startup_b": classificados[i + 1],
+                    "encerrado": False,
+                    "vencedor": None,
+                    "fase": nova_fase
+                }
+                confrontos_atuais.insert_one(confronto)
+
+            print(f"⚙️ Nova fase {nova_fase} gerada automaticamente com {len(classificados)} classificados.")
+
     return {"message": "Confronto encerrado com sucesso."}
+
+
 
 @app.post("/confrontos/gerar-proxima-fase")
 def gerar_proxima_fase():
+    if confrontos_atuais.find_one({}):
+        return {"message": "Já existe fase em andamento."}
+
     ultimos = list(confrontos_anteriores.find({}, {"_id": 0}))
     if not ultimos:
         raise HTTPException(status_code=400, detail="Nenhuma fase finalizada.")
 
     ultima_fase = max(c.get("fase", 1) for c in ultimos)
-    if confrontos_atuais.find_one({"encerrado": False}):
-        return {"message": "Já existe fase em andamento."}
+    ultimos = [c for c in ultimos if c.get("fase") == ultima_fase]
 
-
-    vencedores = [c["vencedor"] for c in ultimos if c.get("fase") == ultima_fase]
+    vencedores = [c["vencedor"] for c in ultimos if c.get("vencedor")]
 
     nomes_unicos = set()
     classificados = []
@@ -155,8 +191,7 @@ def gerar_proxima_fase():
         }
         confrontos_atuais.insert_one(confronto)
 
-    print("Gerando próxima fase com classificados:", classificados)
-
+    print("✅ Nova fase gerada com:", [s["nome"] for s in classificados])
 
     return {"message": "Nova fase gerada.", "fase": nova_fase}
 
@@ -187,6 +222,7 @@ def listar_classificados():
 
     nomes = list(set(s["nome"] for s in vencedores))
     total_batalhas = len([c for c in ultimos if c["fase"] == maior_fase])
+
     if len(nomes) == 1 and total_batalhas == len(vencedores):
         campeao = vencedores[0]
         dados = startups_collection.find_one({"nome": campeao["nome"]}, {"_id": 0, "slogan": 1})
@@ -196,6 +232,7 @@ def listar_classificados():
         return [campeao]
 
     return vencedores
+
 
 @app.get("/relatorio-final")
 def relatorio_final():
