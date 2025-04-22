@@ -12,22 +12,30 @@ export default function Sorteio() {
   const [gerandoConfrontos, setGerandoConfrontos] = useState(false);
   const [campeao, setCampeao] = useState(null);
   const [faseAtual, setFaseAtual] = useState(1);
+  const [vagaDireta, setVagaDireta] = useState(null);
 
   useEffect(() => {
     async function carregarDados() {
       try {
         const resConfrontos = await axios.get("http://localhost:8000/confrontos");
         const resClassificados = await axios.get("http://localhost:8000/confrontos/classificados");
+        const resVaga = await axios.get("http://localhost:8000/vaga-direta");
 
         const dadosConfrontos = resConfrontos.data;
         const dadosClassificados = resClassificados.data;
 
         setBatalhas(dadosConfrontos);
+        setVagaDireta(resVaga.data?.vaga_direta || null);
+
         if (dadosConfrontos.length > 0) {
           setFaseAtual(dadosConfrontos[0].fase || 1);
         }
 
-        if (dadosClassificados.length === 1 && dadosClassificados[0].campeao) {
+        // Impede avanço para o final se ainda houver batalhas não encerradas
+        const haNaoEncerradas = dadosConfrontos.some((b) => !b.encerrado);
+        if (haNaoEncerradas) return;
+
+        if (dadosClassificados?.length === 1 && dadosClassificados[0]?.campeao) {
           setCampeao(dadosClassificados[0]);
           navigate("/vencedor");
           return;
@@ -40,7 +48,10 @@ export default function Sorteio() {
           dadosConfrontos.length > 0 &&
           dadosConfrontos.every((b) => b.encerrado);
 
-        if (location.state?.ultimaBatalhaFinalizada && todasEncerradas) {
+        if (
+          location.state?.ultimaBatalhaFinalizada &&
+          todasEncerradas
+        ) {
           setGerandoConfrontos(true);
           setTimeout(async () => {
             try {
@@ -67,9 +78,7 @@ export default function Sorteio() {
 
   return (
     <div style={{ maxWidth: 700, margin: "40px auto", padding: 24 }}>
-      <button className="voltar-btn" onClick={() => navigate("/")}>
-        ← Voltar para o cadastro
-      </button>
+      <button className="voltar-btn" onClick={() => navigate("/")}>← Voltar para o cadastro</button>
 
       <h2 style={{ textAlign: "center", marginBottom: 30 }}>
         Batalhas Sorteadas {faseAtual > 1 && `(Fase ${faseAtual})`}
@@ -118,6 +127,12 @@ export default function Sorteio() {
           </div>
         );
       })}
+
+      {vagaDireta && (
+        <div style={{ marginTop: 30, textAlign: "center", fontSize: 16, color: "#333" }}>
+          🚀 <strong>{vagaDireta}</strong> avançou direto para a próxima fase.
+        </div>
+      )}
     </div>
   );
 }
