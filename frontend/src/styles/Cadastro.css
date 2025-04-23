@@ -14,7 +14,7 @@
   }
   
   .form-container input {
-    width: 100%;
+    width: 95%;
     padding: 10px;
     margin-bottom: 12px;
     border: 1px solid #ccc;
@@ -71,7 +71,7 @@
     transition: transform 0.2s;
   }
   
-  
+ 
   .startup-card:hover {
     transform: scale(1.02);
   }

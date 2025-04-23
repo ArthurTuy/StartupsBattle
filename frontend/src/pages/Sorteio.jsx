@@ -8,9 +8,6 @@ export default function Sorteio() {
   const navigate = useNavigate();
 
   const [batalhas, setBatalhas] = useState([]);
-  const [classificados, setClassificados] = useState([]);
-  const [gerandoConfrontos, setGerandoConfrontos] = useState(false);
-  const [campeao, setCampeao] = useState(null);
   const [faseAtual, setFaseAtual] = useState(1);
   const [vagaDireta, setVagaDireta] = useState(null);
 
@@ -36,13 +33,9 @@ export default function Sorteio() {
         if (haNaoEncerradas) return;
 
         if (dadosClassificados?.length === 1 && dadosClassificados[0]?.campeao) {
-          setCampeao(dadosClassificados[0]);
           navigate("/vencedor");
           return;
         }
-
-        const lista = dadosClassificados.map((c) => c.vencedor || c);
-        setClassificados(lista);
 
         const todasEncerradas =
           dadosConfrontos.length > 0 &&
@@ -52,7 +45,6 @@ export default function Sorteio() {
           location.state?.ultimaBatalhaFinalizada &&
           todasEncerradas
         ) {
-          setGerandoConfrontos(true);
           setTimeout(async () => {
             try {
               const res = await axios.post("http://localhost:8000/confrontos/gerar-proxima-fase");
@@ -114,7 +106,7 @@ export default function Sorteio() {
 
             {encerrada && vencedor ? (
               <div className="finalizado">
-                🏆 <strong>{vencedor.nome}</strong> venceu
+                <strong>{vencedor.nome}</strong> venceu
               </div>
             ) : (
               <button

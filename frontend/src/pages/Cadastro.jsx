@@ -14,7 +14,6 @@ export default function Cadastro() {
   const [startups, setStartups] = useState([]);
   const navigate = useNavigate();
 
-  // Buscar startups no back-end
   const buscarStartups = () => {
     axios.get("http://localhost:8000/startups")
       .then(res => setStartups(res.data))
@@ -42,8 +41,6 @@ export default function Cadastro() {
       });
   };
   
-
-  // Executar ao carregar a página
   useEffect(() => {
     buscarStartups();
   }, []);
@@ -144,7 +141,7 @@ export default function Cadastro() {
       });
   }}
 >
-  🧹 Limpar confrontos
+  Limpar confrontos
 </button>
 
     </div>

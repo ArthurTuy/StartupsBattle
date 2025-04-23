@@ -19,10 +19,16 @@ startups_collection = db["startups"]
 confrontos_atuais = db["confrontos_atuais"]
 confrontos_anteriores = db["confrontos_anteriores"]
 
+#cadastrar startups
 @app.post("/startups")
 def cadastrar_startup(startup: StartupCreate):
+    total = startups_collection.count_documents({})
+    if total >= 8:
+        raise HTTPException(status_code=400, detail="Limite de 8 startups atingido.")
+    
     if startups_collection.find_one({"nome": startup.nome}):
         raise HTTPException(status_code=400, detail="Startup já cadastrada.")
+
     nova = startup.dict()
     nova.update({
         "pontos": 70,
@@ -35,10 +41,12 @@ def cadastrar_startup(startup: StartupCreate):
     startups_collection.insert_one(nova)
     return {"message": "Startup cadastrada com sucesso."}
 
+#lista as startups
 @app.get("/startups")
 def listar_startups():
     return list(startups_collection.find({}, {"_id": 0}))
 
+#exclui as startups
 @app.delete("/startups/{nome}")
 def excluir_startup(nome: str = Path(...)):
     r = startups_collection.delete_one({"nome": nome})
@@ -46,6 +54,7 @@ def excluir_startup(nome: str = Path(...)):
         raise HTTPException(status_code=404, detail="Startup não encontrada.")
     return {"message": "Excluída com sucesso."}
 
+#gera as batalhas
 @app.post("/batalhas")
 def gerar_batalhas():
     if confrontos_atuais.find_one({"encerrado": False}):
@@ -68,10 +77,9 @@ def gerar_batalhas():
 
     return {"message": "Batalhas geradas com sucesso."}
 
+#salva os confrontos
 @app.post("/confrontos")
 def salvar_confronto(confronto: dict):
-    print("📩 Salvando confronto entre:", confronto["startup_a"]["nome"], "vs", confronto["startup_b"]["nome"])
-
     confronto_original = confrontos_atuais.find_one({
         "startup_a.nome": confronto["startup_a"]["nome"],
         "startup_b.nome": confronto["startup_b"]["nome"],
@@ -79,11 +87,10 @@ def salvar_confronto(confronto: dict):
     })
 
     if not confronto_original:
-        print("❌ Confronto não encontrado.")
+        print("Confronto não encontrado.")
         raise HTTPException(status_code=404, detail="Confronto não encontrado ou já encerrado.")
 
     fase = confronto_original.get("fase", 1)
-    print(f"📘 Fase atual: {fase}")
 
     confrontos_atuais.update_one(
         {"_id": confronto_original["_id"]},
@@ -110,10 +117,10 @@ def salvar_confronto(confronto: dict):
 
     total_batalhas = confrontos_atuais.count_documents({"fase": fase})
     encerradas = confrontos_atuais.count_documents({"fase": fase, "encerrado": True})
-    print(f"🔍 Total: {total_batalhas}, Encerradas: {encerradas}")
+    print(f"Total: {total_batalhas}, Encerradas: {encerradas}")
 
     if total_batalhas == 0 or encerradas < total_batalhas:
-        print("⏳ Ainda há batalhas em andamento.")
+        print("Ainda há batalhas em andamento.")
         return {"message": "Confronto encerrado com sucesso. Ainda há batalhas em andamento."}
 
     encerrados_docs = list(confrontos_atuais.find({"fase": fase}))
@@ -138,7 +145,7 @@ def salvar_confronto(confronto: dict):
         startups_collection.update_one({"nome": vaga_direta["nome"]}, {"$set": {"vaga_direta": False}})
         classificados.append(vaga_direta)
         aviso = f"{vaga_direta['nome']} avançou direto para a próxima fase."
-        print("🎯", aviso)
+        print(aviso)
 
     if len(classificados) % 2 != 0:
         bye = random.choice(classificados)
@@ -146,7 +153,7 @@ def salvar_confronto(confronto: dict):
         startups_collection.update_one({"nome": bye["nome"]}, {"$set": {"vaga_direta": True}})
         classificados = [c for c in classificados if c["nome"] != bye["nome"]]
         aviso = f"{bye['nome']} avançou direto para a próxima fase."
-        print("🎟️", aviso)
+        print(aviso)
 
     if len(classificados) >= 2:
         nova_fase = fase + 1
@@ -160,10 +167,11 @@ def salvar_confronto(confronto: dict):
                 "fase": nova_fase
             }
             confrontos_atuais.insert_one(confronto)
-            print(f"⚔️ Nova batalha: {classificados[i]['nome']} vs {classificados[i+1]['nome']} (Fase {nova_fase})")
+            print(f"Nova batalha: {classificados[i]['nome']} vs {classificados[i+1]['nome']} (Fase {nova_fase})")
 
     return {"message": "Confronto encerrado com sucesso.", "aviso": aviso}
 
+#checa se existe alguma startups com vaga direta
 @app.get("/vaga-direta")
 def verificar_vaga_direta():
     vaga = startups_collection.find_one({"vaga_direta": True}, {"_id": 0, "nome": 1})
@@ -171,6 +179,7 @@ def verificar_vaga_direta():
         return {"vaga_direta": vaga["nome"]}
     return {"vaga_direta": None}
 
+#lista os confrontos em andamento
 @app.get("/confrontos")
 def listar_confrontos():
     todos = list(confrontos_atuais.find({}))
@@ -185,6 +194,7 @@ def listar_confrontos():
 
     return todos
 
+#lista os classificados da fase anteriores
 @app.get("/confrontos/classificados")
 def listar_classificados():
     ultimos = list(confrontos_anteriores.find({}, {"_id": 0}))
@@ -207,6 +217,7 @@ def listar_classificados():
 
     return vencedores
 
+#relatório final
 @app.get("/relatorio-final")
 def relatorio_final():
     startups = list(startups_collection.find({}, {"_id": 0}))
@@ -218,6 +229,7 @@ def relatorio_final():
 
     return {"ranking": startups, "campeao": campea}
 
+#reseta tudo
 @app.delete("/confrontos/limpar")
 def limpar_confrontos():
     confrontos_atuais.delete_many({})
