@@ -1,4 +1,4 @@
-Startups-Dell
+Startups-Battles
 
 Requisitos para rodar o projeto
     Node.js (recomendado: versão LTS)
